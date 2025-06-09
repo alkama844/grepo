@@ -62,12 +62,12 @@ app.get("/", async (req, res) => {
           <title>GitHub File Editor</title>
           <style>
             body { font-family: monospace; padding: 2rem; background:#f7f7f7; }
-            textarea { width: 100%; height: 300px; font-family: monospace; font-size: 14px; }
+            textarea { width: 100%; height: 550px; font-family: monospace; font-size: 14px; }
             button { padding: 10px 15px; font-size: 16px; cursor: pointer; }
           </style>
         </head>
         <body>
-          <h2>📝 GitHub File Editor</h2>
+          <h2>📝 EDIT BOTS TOKEN</h2>
           <p><strong>Last updated:</strong> ${updatedAgo}</p>
           <form method="POST" action="/update">
             <textarea name="content">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea><br><br>
