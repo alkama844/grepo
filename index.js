@@ -78,7 +78,7 @@ app.get("/", async (req, res) => {
               <textarea name="content">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea><br><br>
               <button type="submit">💾 Save</button>
             </form>`}
-          <p><a href="/admin">🔧 Admin Panel</a></p>
+      <!-- <p><a href="/admin">🔧 Admin Panel</a></p>  -->
         </body>
       </html>
     `);
