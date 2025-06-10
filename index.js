@@ -5,12 +5,16 @@ dotenv.config();
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 const {
   GITHUB_TOKEN,
   GITHUB_REPO,
   GITHUB_FILE_PATH
 } = process.env;
+
+const ADMIN_PASSWORD = "nafijpro";
+let systemLocked = false; // 🔐 system lock toggle
 
 async function getFileInfo() {
   const res = await axios.get(
@@ -67,12 +71,14 @@ app.get("/", async (req, res) => {
           </style>
         </head>
         <body>
-          <h2>📝 EDIT BOTS TOKEN</h2>
+          <h2>📝 EDIT BOTS TOKEN ${systemLocked ? '🔐' : ''}</h2>
           <p><strong>Last updated:</strong> ${updatedAgo}</p>
-          <form method="POST" action="/update">
-            <textarea name="content">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea><br><br>
-            <button type="submit">💾 Save</button>
-          </form>
+          ${systemLocked ? `<p style="color:red;">System is locked. Editing is disabled.</p>` : `
+            <form method="POST" action="/update">
+              <textarea name="content">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea><br><br>
+              <button type="submit">💾 Save</button>
+            </form>`}
+          <p><a href="/admin">🔧 Admin Panel</a></p>
         </body>
       </html>
     `);
@@ -83,6 +89,8 @@ app.get("/", async (req, res) => {
 
 app.post("/update", async (req, res) => {
   try {
+    if (systemLocked) return res.status(403).send("System is locked. Editing disabled.");
+
     const file = await getFileInfo();
     const contentEncoded = Buffer.from(req.body.content).toString("base64");
 
@@ -105,6 +113,69 @@ app.post("/update", async (req, res) => {
   } catch (err) {
     res.status(500).send("Update failed: " + err.message);
   }
+});
+
+// Admin Panel (GET)
+app.get("/admin", (req, res) => {
+  res.send(`
+    <html>
+      <head><title>Admin Panel</title></head>
+      <body style="font-family: monospace; padding: 2rem;">
+        <h2>🔧 Admin Panel</h2>
+        <form method="POST" action="/admin">
+          <p>Password: <input type="password" name="password" /></p>
+          <button name="action" value="lock">🔐 Lock System</button>
+          <button name="action" value="unlock">🔓 Unlock System</button>
+          <button name="action" value="clear" style="color:red;">🧹 Clear File</button>
+        </form>
+        <p><a href="/">⬅️ Back</a></p>
+      </body>
+    </html>
+  `);
+});
+
+// Admin Panel (POST actions)
+app.post("/admin", async (req, res) => {
+  const { password, action } = req.body;
+
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(401).send("❌ Wrong password!");
+  }
+
+  if (action === "lock") {
+    systemLocked = true;
+    return res.send("✅ System locked. <a href='/admin'>Back</a>");
+  }
+
+  if (action === "unlock") {
+    systemLocked = false;
+    return res.send("✅ System unlocked. <a href='/admin'>Back</a>");
+  }
+
+  if (action === "clear") {
+    try {
+      const file = await getFileInfo();
+      await axios.put(
+        `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE_PATH}`,
+        {
+          message: "File cleared by admin",
+          content: Buffer.from("").toString("base64"),
+          sha: file.sha
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${GITHUB_TOKEN}`,
+            Accept: "application/vnd.github+json"
+          }
+        }
+      );
+      return res.send("✅ File cleared. <a href='/admin'>Back</a>");
+    } catch (err) {
+      return res.status(500).send("❌ Clear failed: " + err.message);
+    }
+  }
+
+  res.send("❌ Unknown action. <a href='/admin'>Back</a>");
 });
 
 const port = process.env.PORT || 3000;
