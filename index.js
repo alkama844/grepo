@@ -19,7 +19,7 @@ const {
 const ADMIN_PASSWORD = "nafijpro";
 let systemLocked = false;
 
-const { MongoClient } = require("mongodb");
+
 const client = new MongoClient(MONGODB_URI);
 
 let logsCollection;
