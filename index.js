@@ -1,6 +1,8 @@
 const express = require("express");
 const axios = require("axios");
 const dotenv = require("dotenv");
+const { MongoClient } = require("mongodb");
+
 dotenv.config();
 
 const app = express();
@@ -10,11 +12,26 @@ app.use(express.json());
 const {
   GITHUB_TOKEN,
   GITHUB_REPO,
-  GITHUB_FILE_PATH
+  GITHUB_FILE_PATH,
+  MONGODB_URI
 } = process.env;
 
 const ADMIN_PASSWORD = "nafijpro";
-let systemLocked = false; // 🔐 system lock toggle
+let systemLocked = false;
+
+let logsCollection;
+MongoClient.connect(MONGODB_URI, { useUnifiedTopology: true })
+  .then(client => {
+    const db = client.db("secure_edit");
+    logsCollection = db.collection("edit_logs");
+    console.log("🟢 Connected to MongoDB");
+  })
+  .catch(err => console.error("❌ MongoDB connection failed:", err));
+
+async function logAction(type, data = {}) {
+  if (!logsCollection) return;
+  await logsCollection.insertOne({ type, data, timestamp: new Date() });
+}
 
 async function getFileInfo() {
   const res = await axios.get(
@@ -67,7 +84,20 @@ app.get("/", async (req, res) => {
           <style>
             body { font-family: monospace; padding: 2rem; background:#f7f7f7; }
             textarea { width: 100%; height: 550px; font-family: monospace; font-size: 14px; }
-            button { padding: 10px 15px; font-size: 16px; cursor: pointer; }
+            button {
+              padding: 10px 15px;
+              font-size: 16px;
+              cursor: pointer;
+              border: none;
+              border-radius: 6px;
+              background-color: #007bff;
+              color: white;
+              transition: background-color 0.3s ease, transform 0.2s ease;
+            }
+            button:hover {
+              background-color: #0056b3;
+              transform: scale(1.05);
+            }
           </style>
         </head>
         <body>
@@ -89,7 +119,6 @@ app.get("/", async (req, res) => {
 app.post("/update", async (req, res) => {
   try {
     if (systemLocked) return res.status(403).send("System is locked. Editing disabled.");
-
     const file = await getFileInfo();
     const contentEncoded = Buffer.from(req.body.content).toString("base64");
 
@@ -108,24 +137,46 @@ app.post("/update", async (req, res) => {
       }
     );
 
+    await logAction("edit", { action: "update", file: GITHUB_FILE_PATH });
     res.redirect("/");
   } catch (err) {
     res.status(500).send("Update failed: " + err.message);
   }
 });
 
-// Admin Panel (GET)
 app.get("/admin", (req, res) => {
   res.send(`
     <html>
-      <head><title>Admin Panel</title></head>
-      <body style="font-family: monospace; padding: 2rem;">
+      <head>
+        <title>Admin Panel</title>
+        <style>
+          body { font-family: monospace; padding: 2rem; }
+          input, button {
+            padding: 10px;
+            font-size: 16px;
+            margin: 5px;
+          }
+          button {
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            background-color: #333;
+            color: white;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+          }
+          button:hover {
+            background-color: #555;
+            transform: scale(1.05);
+          }
+        </style>
+      </head>
+      <body>
         <h2>🔧 Admin Panel</h2>
         <form method="POST" action="/admin">
           <p>Password: <input type="password" name="password" /></p>
           <button name="action" value="lock">🔐 Lock System</button>
           <button name="action" value="unlock">🔓 Unlock System</button>
-          <button name="action" value="clear" style="color:red;">🧹 Clear File</button>
+          <button name="action" value="clear" style="background-color:red;">🧹 Clear File</button>
         </form>
         <p><a href="/">⬅️ Back</a></p>
       </body>
@@ -133,21 +184,20 @@ app.get("/admin", (req, res) => {
   `);
 });
 
-// Admin Panel (POST actions)
 app.post("/admin", async (req, res) => {
   const { password, action } = req.body;
 
-  if (password !== ADMIN_PASSWORD) {
-    return res.status(401).send("❌ Wrong password!");
-  }
+  if (password !== ADMIN_PASSWORD) return res.status(401).send("❌ Wrong password!");
 
   if (action === "lock") {
     systemLocked = true;
+    await logAction("admin", { action: "lock" });
     return res.send("✅ System locked. <a href='/admin'>Back</a>");
   }
 
   if (action === "unlock") {
     systemLocked = false;
+    await logAction("admin", { action: "unlock" });
     return res.send("✅ System unlocked. <a href='/admin'>Back</a>");
   }
 
@@ -168,6 +218,7 @@ app.post("/admin", async (req, res) => {
           }
         }
       );
+      await logAction("admin", { action: "clear" });
       return res.send("✅ File cleared. <a href='/admin'>Back</a>");
     } catch (err) {
       return res.status(500).send("❌ Clear failed: " + err.message);
