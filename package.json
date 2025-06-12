@@ -1,7 +1,7 @@
 {
   "name": "github-file-editor",
-  "version": "1.0.1",
-  "description": "A simple and powerful GitHub file editor powered by Express and GitHub API. Created by NAFIJ PRO.",
+  "version": "1.0.2",
+  "description": "A simple and powerful GitHub file editor powered by Express, MongoDB, and GitHub API. Created by NAFIJ PRO.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -12,7 +12,8 @@
   "dependencies": {
     "axios": "^1.6.0",
     "dotenv": "^16.3.1",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "mongodb": "^6.5.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
@@ -21,6 +22,7 @@
     "GitHub",
     "Editor",
     "GitHub API",
+    "MongoDB",
     "File Manager",
     "Express",
     "NAFIJPRO"
