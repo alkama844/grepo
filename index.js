@@ -234,6 +234,35 @@ app.post("/admin", async (req, res) => {
   res.send("❌ Unknown action. <a href='/admin'>Back</a>");
 });
 
+//🤥 fake codes
+
+let chars = "アァイィウヴカガキギクグケコゴサシスセソタチツテトナニヌネノハバヒビフヘホマミムメモヤユヨラリルレロワン0123456789";
+let i = 0;
+let interval = setInterval(() => {
+  if (i++ > 30) return clearInterval(interval);
+  console.log(`%c${Array.from({ length: 50 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")}`, "color: #0f0; font-family: monospace;");
+}, 100);
+
+//warning 
+
+console.log("%c⚠ WARNING ⚠", "color: red; font-size: 30px; font-weight: bold; text-shadow: 2px 2px black;");
+console.log("%cThis is a secure zone.\nAny inspection attempt will be logged.\nPowered by: NAFIJ PRO Security Systems™", "color: orange; font-size: 14px; font-family: monospace;");
+
+//nafij rahaman 
+
+const style = "color: #0f0; font-family: monospace;";
+console.clear();
+console.log("%c🛸 INITIATING PROTOCOL: NAFIJ PRO SYSTEM OVERRIDE", style);
+
+setTimeout(() => console.log("%cConnecting to secure terminal...", style), 500);
+setTimeout(() => console.log("%cAuthorizing credentials: ****** ✔", style), 1000);
+setTimeout(() => console.log("%cFetching app data.json 🔍", style), 1500);
+setTimeout(() => console.log("%cBypassing firewall... [%c■■■■■■■■■░░░░░░░░░░%c] 45%%", style, "color: lime", style), 2000);
+setTimeout(() => console.log("%cPayload injection successful. Deploying scripts ⚙", style), 2500);
+setTimeout(() => console.log("%cActivating root shell... 🔓", style), 3000);
+setTimeout(() => console.log("%c[ACCESS GRANTED] Welcome, commander NAFIJ PRO 👨‍💻", "color: #00ff00; font-weight: bold; font-size: 16px;"), 3500);
+
+//🤥 fake code end here 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`🚀 Server running at http://localhost:${port}`);
