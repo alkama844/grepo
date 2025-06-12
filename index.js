@@ -19,14 +19,20 @@ const {
 const ADMIN_PASSWORD = "nafijpro";
 let systemLocked = false;
 
+const { MongoClient } = require("mongodb");
+const client = new MongoClient(MONGODB_URI);
+
 let logsCollection;
-MongoClient.connect(MONGODB_URI, { useUnifiedTopology: true })
-  .then(client => {
+
+client.connect()
+  .then(() => {
     const db = client.db("secure_edit");
     logsCollection = db.collection("edit_logs");
     console.log("🟢 Connected to MongoDB");
   })
-  .catch(err => console.error("❌ MongoDB connection failed:", err));
+  .catch(err => {
+    console.error("❌ MongoDB connection failed:", err);
+  });
 
 async function logAction(type, data = {}) {
   if (!logsCollection) return;
