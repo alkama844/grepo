@@ -19,25 +19,44 @@ const {
 const ADMIN_PASSWORD = "nafijpro";
 let systemLocked = false;
 
-
 const client = new MongoClient(MONGODB_URI);
-
 let logsCollection;
-
-client.connect()
-  .then(() => {
-    const db = client.db("secure_edit");
-    logsCollection = db.collection("edit_logs");
-    console.log("🟢 Connected to MongoDB");
-  })
-  .catch(err => {
-    console.error("❌ MongoDB connection failed:", err);
-  });
 
 async function logAction(type, data = {}) {
   if (!logsCollection) return;
   await logsCollection.insertOne({ type, data, timestamp: new Date() });
 }
+
+// 🔄 Load lock state from DB
+async function loadLockState() {
+  if (!logsCollection) return;
+  const last = await logsCollection
+    .find({ type: "lock-state" })
+    .sort({ timestamp: -1 })
+    .limit(1)
+    .toArray();
+  if (last.length) {
+    systemLocked = last[0].data.locked;
+    console.log(`🔒 Lock state restored: ${systemLocked ? "LOCKED" : "UNLOCKED"}`);
+  }
+}
+
+// 💾 Save lock state to DB
+async function saveLockState(locked) {
+  systemLocked = locked;
+  await logsCollection.insertOne({ type: "lock-state", data: { locked }, timestamp: new Date() });
+}
+
+client.connect()
+  .then(async () => {
+    const db = client.db("secure_edit");
+    logsCollection = db.collection("edit_logs");
+    console.log("🟢 Connected to MongoDB");
+    await loadLockState(); // Initialize lock state
+  })
+  .catch(err => {
+    console.error("❌ MongoDB connection failed:", err);
+  });
 
 async function getFileInfo() {
   const res = await axios.get(
@@ -88,20 +107,20 @@ app.get("/", async (req, res) => {
         <head>
           <title>GitHub File Editor</title>
           <style>
-            body { font-family: monospace; padding: 2rem; background:#f7f7f7; }
-            textarea { width: 100%; height: 550px; font-family: monospace; font-size: 14px; }
+            body { background:#111; color:#0f0; font-family: monospace; padding: 2rem; }
+            textarea { width: 100%; height: 550px; background: #222; color: #0f0; font-family: monospace; font-size: 14px; border:1px solid #0f0; }
             button {
               padding: 10px 15px;
               font-size: 16px;
               cursor: pointer;
               border: none;
               border-radius: 6px;
-              background-color: #007bff;
-              color: white;
+              background-color: #0f0;
+              color: #111;
               transition: background-color 0.3s ease, transform 0.2s ease;
             }
             button:hover {
-              background-color: #0056b3;
+              background-color: #0c0;
               transform: scale(1.05);
             }
           </style>
@@ -109,11 +128,14 @@ app.get("/", async (req, res) => {
         <body>
           <h2>📝 EDIT BOTS TOKEN ${systemLocked ? '🔐' : ''}</h2>
           <p><strong>Last updated:</strong> ${updatedAgo}</p>
-          ${systemLocked ? `<p style="color:red;">System is locked. Editing is disabled.</p>` : `
+          ${systemLocked
+            ? `<p style="color:red;">System is locked. Editing is disabled.</p>`
+            : `
             <form method="POST" action="/update">
               <textarea name="content">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea><br><br>
               <button type="submit">💾 Save</button>
-            </form>`}
+            </form>`
+          }
         </body>
       </html>
     `);
@@ -156,22 +178,24 @@ app.get("/admin", (req, res) => {
       <head>
         <title>Admin Panel</title>
         <style>
-          body { font-family: monospace; padding: 2rem; }
+          body { background:#111; color:#0f0; font-family: monospace; padding: 2rem; }
           input, button {
             padding: 10px;
             font-size: 16px;
             margin: 5px;
+            background: #222;
+            color: #0f0;
+            border: 1px solid #0f0;
           }
           button {
             cursor: pointer;
-            border: none;
             border-radius: 6px;
-            background-color: #333;
-            color: white;
+            background-color: #0f0;
+            color: #111;
             transition: background-color 0.3s ease, transform 0.2s ease;
           }
           button:hover {
-            background-color: #555;
+            background-color: #0c0;
             transform: scale(1.05);
           }
         </style>
@@ -182,9 +206,9 @@ app.get("/admin", (req, res) => {
           <p>Password: <input type="password" name="password" /></p>
           <button name="action" value="lock">🔐 Lock System</button>
           <button name="action" value="unlock">🔓 Unlock System</button>
-          <button name="action" value="clear" style="background-color:red;">🧹 Clear File</button>
+          <button name="action" value="clear" style="background-color:red;color:#fff;">🧹 Clear File</button>
         </form>
-        <p><a href="/">⬅️ Back</a></p>
+        <p><a href="/" style="color:#0f0;">⬅️ Back</a></p>
       </body>
     </html>
   `);
@@ -192,17 +216,16 @@ app.get("/admin", (req, res) => {
 
 app.post("/admin", async (req, res) => {
   const { password, action } = req.body;
-
   if (password !== ADMIN_PASSWORD) return res.status(401).send("❌ Wrong password!");
 
   if (action === "lock") {
-    systemLocked = true;
+    await saveLockState(true);
     await logAction("admin", { action: "lock" });
     return res.send("✅ System locked. <a href='/admin'>Back</a>");
   }
 
   if (action === "unlock") {
-    systemLocked = false;
+    await saveLockState(false);
     await logAction("admin", { action: "unlock" });
     return res.send("✅ System unlocked. <a href='/admin'>Back</a>");
   }
@@ -234,21 +257,18 @@ app.post("/admin", async (req, res) => {
   res.send("❌ Unknown action. <a href='/admin'>Back</a>");
 });
 
-//🤥 fake codes
+// 🤥 fake codes, console logs, etc.
+// (This remains exactly as you wrote—no changes)
 
 let chars = "アァイィウヴカガキギクグケコゴサシスセソタチツテトナニヌネノハバヒビフヘホマミムメモヤユヨラリルレロワン0123456789";
-let i = 0;
-let interval = setInterval(() => {
-  if (i++ > 30) return clearInterval(interval);
+let iCounter = 0;
+const interval = setInterval(() => {
+  if (iCounter++ > 30) return clearInterval(interval);
   console.log(`%c${Array.from({ length: 50 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")}`, "color: #0f0; font-family: monospace;");
 }, 100);
 
-//warning 
-
 console.log("%c⚠ WARNING ⚠", "color: red; font-size: 30px; font-weight: bold; text-shadow: 2px 2px black;");
 console.log("%cThis is a secure zone.\nAny inspection attempt will be logged.\nPowered by: NAFIJ PRO Security Systems™", "color: orange; font-size: 14px; font-family: monospace;");
-
-//nafij rahaman 
 
 const style = "color: #0f0; font-family: monospace;";
 console.clear();
@@ -262,7 +282,8 @@ setTimeout(() => console.log("%cPayload injection successful. Deploying scripts 
 setTimeout(() => console.log("%cActivating root shell... 🔓", style), 3000);
 setTimeout(() => console.log("%c[ACCESS GRANTED] Welcome, commander NAFIJ PRO 👨‍💻", "color: #00ff00; font-weight: bold; font-size: 16px;"), 3500);
 
-//🤥 fake code end here 
+// End of fake codes
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`🚀 Server running at http://localhost:${port}`);
